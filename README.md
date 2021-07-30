@@ -12,3 +12,6 @@ executable, so in your `cgitrc` you can write:
     about-filter=/whatever/bin/about-filter
     
 and keep your `chroot` or container or what-have-you nice and small.
+
+Functionality is equivalent to the script(s) included with cgit, with the
+exception of manpage support.

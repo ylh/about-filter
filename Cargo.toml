@@ -3,6 +3,12 @@ name = "about-filter"
 version = "0.1.0"
 edition = "2018"
 
+readme = "README.md"
+license-file = "LICENSE"
+description = "cgit-specific readme formatter multiplexer"
+homepage = "https://git.ylh.io/about-filter"
+repository = "https://github.com/ylh/about-filter"
+
 [dependencies]
 failure = "0.1.8"
 rst_parser = "0.4.0"
