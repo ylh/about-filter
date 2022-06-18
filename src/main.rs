@@ -3,48 +3,45 @@ use std::ffi::OsStr;
 use std::io::{self, Read, Write};
 use std::path::Path;
 
-use comrak;
-use failure;
+use comrak::{markdown_to_html, ComrakOptions};
 use html_escape;
 use rst_parser;
 use rst_renderer;
 
-fn to_io(e: failure::Error) -> io::Error {
-	io::Error::new(io::ErrorKind::Other, e.to_string())
+fn md(buf: &str, out: &mut impl Write) -> io::Result<()> {
+	out.write_all(markdown_to_html(buf, &ComrakOptions::default()).as_bytes())
 }
 
-fn md<W: Write>(buf: &str, out: &mut W) -> io::Result<()> {
-	let s = comrak::markdown_to_html(buf, &comrak::ComrakOptions::default());
-	out.write(s.as_bytes()).map(|_| ())
+fn rst(buf: &str, out: &mut impl Write) -> io::Result<()> {
+	rst_parser::parse(buf)
+		.and_then(|d| rst_renderer::render_html(&d, out, false))
+		.map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))
 }
 
-fn rst<W: Write>(buf: &str, out: &mut W) -> io::Result<()> {
-	let d = rst_parser::parse(buf).map_err(to_io)?;
-	rst_renderer::render_html(&d, out, false).map_err(to_io)
+fn cat(buf: &str, out: &mut impl Write) -> io::Result<()> {
+	out.write_all(buf.as_bytes())
 }
 
-fn cat<W: Write>(buf: &str, out: &mut W) -> io::Result<()> {
-	out.write(buf.as_bytes()).map(|_| ())
-}
-
-fn txt<W: Write>(buf: &str, out: &mut W) -> io::Result<()> {
-	out.write(b"<pre>")?;
+fn txt(buf: &str, out: &mut impl Write) -> io::Result<()> {
+	out.write_all(b"<pre>")?;
 	html_escape::encode_safe_to_writer(buf, out)?;
-	out.write(b"</pre>").map(|_| ())
+	out.write_all(b"</pre>")
 }
 
 fn main() -> io::Result<()> {
-	let encoder = env::args().nth(1).as_ref()
-		.map(Path::new).and_then(Path::extension).and_then(OsStr::to_str)
+	let mut buf = String::new();
+	io::stdin().read_to_string(&mut buf)?;
+
+	(env::args().nth(1).as_ref()
+		.map(Path::new)
+		.and_then(Path::extension)
+		.and_then(OsStr::to_str)
 		.map(|s| match s.to_lowercase().as_str() {
-			"md" | "mkd" | "markdown" | "mdown"  => md,
+			"md" | "mkd" | "markdown" | "mdown" => md,
 			"rst" => rst,
 			"html" | "htm" => cat,
 			_ => txt
-		}).unwrap_or(txt);
-	let mut buf = String::new();
-	
-	io::stdin().read_to_string(&mut buf)?;
-	
-	encoder(&buf.as_str(), &mut io::stdout())
+		})
+		.unwrap_or(txt)
+	)(&buf.as_str(), &mut io::stdout())
 }
